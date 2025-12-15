@@ -2,11 +2,10 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-@Autonomous(name="twoBallAuto")
-public class twoBallAuto extends LinearOpMode {
+@Autonomous(name="twoBallRed")
+public class twoBallRed extends LinearOpMode {
     public DcMotor leftFront;
     public DcMotor leftBack;
     public DcMotor rightFront;
@@ -65,6 +64,7 @@ public class twoBallAuto extends LinearOpMode {
         telemetry.addData("Initialize","completed");
         telemetry.update();
 
+        waitForStart();
         ///////////////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////AUTON CODE STARTS HERE////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ public class twoBallAuto extends LinearOpMode {
         rightFront.setPower(-0.4);
         rightBack.setPower(-0.4);
 
-        sleep(1100);
+        sleep(600);
 
         flywheel.setPower(0.4);
 
@@ -86,27 +86,25 @@ public class twoBallAuto extends LinearOpMode {
 
         flywheel.setPower(0.6);
         sleep(500);
-        flywheel.setPower(0.74); //final speed
-        sleep(1000);
+        flywheel.setPower(0.75); //final speed
+        sleep(3000);
 
         midRoller.setPower(1);
         sleep(2000);
-        midRoller.setPower(0);
 
         intake.setPower(1);
-        midRoller.setPower(0);
 
-        sleep(2000);
+        sleep(3000);
         intake.setPower(0);
         midRoller.setPower(0);
         flywheel.setPower(0);
 
-        leftFront.setPower(-0.4); //move off line
-        leftBack.setPower(0.4);
-        rightFront.setPower(0.4);
-        rightBack.setPower(-0.4);
+        leftFront.setPower(0.4); //move off line -> neg for blue
+        leftBack.setPower(-0.4); //neg for red
+        rightFront.setPower(-0.4); //neg for red
+        rightBack.setPower(0.4); //neg for blue
 
-        sleep(1000);
+        sleep(1500);
 
         leftFront.setPower(0);
         leftBack.setPower(0);
