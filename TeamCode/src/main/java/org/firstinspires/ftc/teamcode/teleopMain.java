@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 @TeleOp(name="HWW_v1")
-public class drivetrain extends OpMode {
+public class teleopMain extends OpMode {
 
     public DcMotor leftFront;
     public DcMotor leftBack;
@@ -141,7 +141,7 @@ public class drivetrain extends OpMode {
     }
 }
 
-/* Note:
+/* Note to other coders or teams:
 I'm not sure why but the code only compiles and pushes to the driver hub when directly plugged into it (on the robot).
 Please take note of this.
 
@@ -154,6 +154,7 @@ Things to remember at a comp:
  - Robot starting position
  - Robot battery and DS charge
 
+    This year:
  - Push down the flywheel to ensure it's adjusted into motor gear
  - Check to ensure midRoller motor is plugged in (broken clip)
  - Check for loose screws, misaligned gears, increased friction, broken parts
