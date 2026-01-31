@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-@TeleOp(name="HWW_v1")
+@TeleOp(name="HWW_v2")
 public class teleopMain extends OpMode {
 
     public DcMotor leftFront;
@@ -13,8 +13,8 @@ public class teleopMain extends OpMode {
     public DcMotor rightBack;
     public DcMotor intake;
     public DcMotor midRoller;
+    public DcMotor index;
     public DcMotor flywheel;
-
 
     @Override
     public void init() {
@@ -25,6 +25,7 @@ public class teleopMain extends OpMode {
         rightBack = hardwareMap.get(DcMotor.class,"rightBack");
         intake = hardwareMap.get(DcMotor.class,"intake");
         midRoller = hardwareMap.get(DcMotor.class,"midRoller");
+        index = hardwareMap.get(DcMotor.class,"index");
         flywheel = hardwareMap.get(DcMotor.class,"flywheel");
 
         //run without encoders temporarily (DT might use later)
@@ -34,6 +35,7 @@ public class teleopMain extends OpMode {
         rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         midRoller.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        index.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         //Motor directions
@@ -43,6 +45,7 @@ public class teleopMain extends OpMode {
         rightBack.setDirection(DcMotor.Direction.FORWARD);
         intake.setDirection(DcMotor.Direction.FORWARD);
         midRoller.setDirection(DcMotor.Direction.REVERSE);
+        index.setDirection(DcMotor.Direction.REVERSE);
         flywheel.setDirection(DcMotor.Direction.FORWARD);
 
         //Zero behaviour
@@ -52,6 +55,7 @@ public class teleopMain extends OpMode {
 //        rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         midRoller.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        index.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); //not enough inertia to keep spinning anyways
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); //change to brake?
 
         //Init behaviour
@@ -61,6 +65,7 @@ public class teleopMain extends OpMode {
         rightBack.setPower(0);
         intake.setPower(0);
         midRoller.setPower(0);
+        index.setPower(0);
         flywheel.setPower(0);
 
         telemetry.addData("Initialize","completed");
@@ -70,7 +75,7 @@ public class teleopMain extends OpMode {
     final double driveSpeed = 1;
     final double turnSpeed = 1;
     final double intakeSpeed = 1;
-    final double flywheelSpeed = 0.74; //tune this to ideal shooting distance, 1 is too strong right now
+    final double flywheelSpeed = 0.77; //tune this to ideal shooting distance/height
 
     @Override
     public void loop() {
@@ -90,28 +95,29 @@ public class teleopMain extends OpMode {
         rightFront.setPower(frontRightPower);
         rightBack.setPower(backRightPower);
 
-        //index balls
+        //index balls (stored before the index roller)
         if (gamepad1.right_bumper){
             intake.setPower(intakeSpeed);
+            midRoller.setPower(intakeSpeed*0.9);
         }
         //second stage and score -> add distance detect to auto-stop
-        if (gamepad1.left_bumper){
-            midRoller.setPower(1); //slower rpm than stage 1; ~0.5x
+        if (gamepad1.left_bumper) {
+            index.setPower(1); //1:1 with midRoller
         }
-        //outtake midRoller
-        if (gamepad1.right_trigger>0 && gamepad1.right_trigger<0.5){ //trigger is a float for some reason, measures depth of press?
-            midRoller.setPower(-0.5); //tune to adjust ball back slightly when tapped
-            //flywheel.setPower(-1);
+        //outtake index roller only (micro adjustment)
+        if (gamepad1.right_trigger>0 && gamepad1.right_trigger<0.5){ //trigger measures depth of press as a float
+            index.setPower(-0.4); //tune to adjust ball back slightly when tapped
         }
-        //outtake both rollers
-        if (gamepad1.right_trigger>0.5 && gamepad1.right_trigger<1){
-            intake.setPower(-intakeSpeed);
+        //outtake all rollers
+        if (gamepad1.right_trigger>0.5){
+            index.setPower(-1);
             midRoller.setPower(-1);
+            intake.setPower(-1);
         }
 
         //flywheel
         double flywheelPower = gamepad1.left_trigger;
-        flywheel.setPower(flywheelPower*flywheelSpeed);
+        flywheel.setPower(flywheelPower*flywheelSpeed); //limiting max speed (tuned to goal height)
 
         //alternate flywheel -> safeguard
         /*
@@ -131,6 +137,7 @@ public class teleopMain extends OpMode {
 
         intake.setPower(0);
         midRoller.setPower(0);
+        index.setPower(0);
 
         telemetry.addData("Drive", drive*100);
         telemetry.addData("Strafe", strafe*100);
