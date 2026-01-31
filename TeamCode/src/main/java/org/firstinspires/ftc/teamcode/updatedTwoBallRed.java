@@ -42,7 +42,7 @@ public class updatedTwoBallRed extends LinearOpMode {
 
         if (opModeIsActive()) {
             // STEP 1: MOVE OUT PART 1 - STRAFE LEFT
-            moveWithTelemetry("Strafing left", -0.6, 0, -, 2000);
+            moveWithTelemetry("Strafing left", -0.6, 0, 0, 2000);
 
             // STEP 2: MOVE OUT PART 2 - BACK UP
             moveWithTelemetry("Backing up", -0.5, 0, 0, 1500);
