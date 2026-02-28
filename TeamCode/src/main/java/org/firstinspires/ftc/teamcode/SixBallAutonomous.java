@@ -3,11 +3,10 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
 
 /**
  * Multi-stage 6-ball autonomous using a state machine.
- * Gate starts CLOSED; opens before scoring so balls can pass through.
+ * Balls are shot using flywheel and motors.
  * Transitions use elapsed time (and optionally encoders/sensors) with timeouts.
  * See STAGES.md for stage descriptions and how to add encoder/sensor conditions.
  */
@@ -17,41 +16,31 @@ public class SixBallAutonomous extends LinearOpMode {
     // ---------- Hardware ----------
     private DcMotor leftFront, leftBack, rightFront, rightBack;
     private DcMotor intake, midRoller, flywheel;
-    private Servo gateServo;
-
-    // ---------- Gate positions (adjust for your mechanism) ----------
-    private static final double GATE_CLOSED = 0.0;   // Gate closed at start
-    private static final double GATE_OPEN   = 1.0;   // Gate open for scoring
 
     // ---------- Stage timeouts (ms) – fail-safe so we never get stuck ----------
     private static final long TIMEOUT_LEAVE_START_MS    = 2_500;
     private static final long TIMEOUT_COLLECT_MS       = 3_000;
     private static final long TIMEOUT_ALIGN_MS         = 2_000;
-    private static final long TIMEOUT_GATE_MS          = 800;
-    private static final long TIMEOUT_SCORE_MS         = 12_000;  // 6 balls through gate
+    private static final long TIMEOUT_SCORE_MS         = 12_000;  // 6 balls
     private static final long TIMEOUT_PARK_MS          = 4_000;
 
     // ---------- Movement / mechanism timings (ms) ----------
     private static final long TIME_LEAVE_START_MS       = 1_800;
     private static final long TIME_COLLECT_PHASE_MS    = 2_500;
     private static final long TIME_ALIGN_MS            = 1_200;
-    private static final long TIME_GATE_OPEN_MS        = 400;
     private static final long TIME_FLYWHEEL_SPINUP_MS = 1_500;
     private static final long TIME_FEED_BALLS_MS       = 8_000;   // Feed 6 balls
-    private static final long TIME_GATE_CLOSE_MS       = 400;
     private static final long TIME_PARK_MS             = 2_000;
 
     /** Autonomous stage enum – one state per phase. */
     public enum AutoStage {
-        INIT,           // Set gate closed, init hardware
+        INIT,           // Init hardware
         LEAVE_START,    // Drive out of starting position
         COLLECT_1,      // First collection: drive + intake
         COLLECT_2,      // Second collection
         COLLECT_3,      // Third collection
         ALIGN_TO_SCORE, // Turn/strafe to shooting position
-        OPEN_GATE,      // Open gate so balls can pass when we score
         SCORE,          // Flywheel + feed (mid roller + intake)
-        CLOSE_GATE,     // Close gate
         PARK,           // Drive to parking
         DONE            // Stop
     }

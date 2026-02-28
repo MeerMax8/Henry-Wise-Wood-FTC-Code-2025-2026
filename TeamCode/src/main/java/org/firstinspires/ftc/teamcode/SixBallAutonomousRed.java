@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
@@ -17,23 +16,18 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 6-ball autonomous for RED alliance. State machine with gate and AprilTag parking.
- * Gate closed at start; opens before scoring. Final stage drives to AprilTag for parking.
+ * 6-ball autonomous for RED alliance. State machine with AprilTag parking.
+ * Balls are shot using flywheel and motors. Final stage drives to AprilTag for parking.
  */
 @Autonomous(name = "6-Ball Red (State Machine)")
 public class SixBallAutonomousRed extends LinearOpMode {
 
     private DcMotor leftFront, leftBack, rightFront, rightBack;
     private DcMotor intake, midRoller, flywheel;
-    private Servo gateServo;
-
-    private static final double GATE_CLOSED = 0.0;
-    private static final double GATE_OPEN   = 1.0;
 
     private static final long TIMEOUT_LEAVE_START_MS   = 2_500;
     private static final long TIMEOUT_COLLECT_MS       = 3_000;
     private static final long TIMEOUT_ALIGN_MS         = 2_000;
-    private static final long TIMEOUT_GATE_MS          = 800;
     private static final long TIMEOUT_SCORE_MS         = 12_000;
     private static final long TIMEOUT_PARK_MS          = 4_000;
     private static final long TIMEOUT_APRILTAG_MS     = 8_000;
@@ -57,10 +51,8 @@ public class SixBallAutonomousRed extends LinearOpMode {
     private static final long TIME_LEAVE_START_MS      = 1_800;
     private static final long TIME_COLLECT_PHASE_MS   = 2_500;
     private static final long TIME_ALIGN_MS           = 1_200;
-    private static final long TIME_GATE_OPEN_MS       = 400;
     private static final long TIME_FLYWHEEL_SPINUP_MS = 1_500;
     private static final long TIME_FEED_BALLS_MS      = 8_000;
-    private static final long TIME_GATE_CLOSE_MS      = 400;
     private static final long TIME_PARK_MS            = 2_000;
 
     // Red: leave start forward; aim turn positive (ccw); park strafe left (positive strafe)
@@ -70,7 +62,7 @@ public class SixBallAutonomousRed extends LinearOpMode {
 
     public enum AutoStage {
         INIT, LEAVE_START, COLLECT_1, COLLECT_2, COLLECT_3,
-        ALIGN_TO_SCORE, OPEN_GATE, SCORE, CLOSE_GATE, PARK, APRILTAG_PARK, DONE
+        ALIGN_TO_SCORE, SCORE, PARK, APRILTAG_PARK, DONE
     }
 
     private AutoStage currentStage = AutoStage.INIT;
@@ -81,11 +73,9 @@ public class SixBallAutonomousRed extends LinearOpMode {
         initHardware();
         initAprilTag();
         if (USE_WEBCAM) setManualExposure(6, 250);
-        setGateClosed();
 
         telemetry.addData("Alliance", "RED");
         telemetry.addData("Stage", currentStage);
-        telemetry.addData("Gate", "CLOSED at start");
         telemetry.addData("AprilTag", "Webcam ready");
         telemetry.update();
 
@@ -112,7 +102,6 @@ public class SixBallAutonomousRed extends LinearOpMode {
 
         switch (currentStage) {
             case INIT:
-                setGateClosed();
                 transitionTo(AutoStage.LEAVE_START);
                 break;
 
@@ -158,13 +147,6 @@ public class SixBallAutonomousRed extends LinearOpMode {
                 drive(0, ALIGN_TURN, 0);  // Red: positive turn
                 if (elapsed >= TIME_ALIGN_MS || elapsed >= TIMEOUT_ALIGN_MS) {
                     stopDrive();
-                    transitionTo(AutoStage.OPEN_GATE);
-                }
-                break;
-
-            case OPEN_GATE:
-                setGateOpen();
-                if (elapsed >= TIME_GATE_OPEN_MS || elapsed >= TIMEOUT_GATE_MS) {
                     transitionTo(AutoStage.SCORE);
                 }
                 break;
@@ -181,13 +163,6 @@ public class SixBallAutonomousRed extends LinearOpMode {
                     flywheel.setPower(0);
                     midRoller.setPower(0);
                     intake.setPower(0);
-                    transitionTo(AutoStage.CLOSE_GATE);
-                }
-                break;
-
-            case CLOSE_GATE:
-                setGateClosed();
-                if (elapsed >= TIME_GATE_CLOSE_MS || elapsed >= TIMEOUT_GATE_MS) {
                     transitionTo(AutoStage.PARK);
                 }
                 break;
@@ -232,11 +207,6 @@ public class SixBallAutonomousRed extends LinearOpMode {
         midRoller.setDirection(DcMotor.Direction.REVERSE);
         flywheel.setDirection(DcMotor.Direction.FORWARD);
 
-        try {
-            gateServo = hardwareMap.get(Servo.class, "gate");
-        } catch (Exception e) {
-            telemetry.addData("Warning", "Gate servo 'gate' not found");
-        }
     }
 
     private void initAprilTag() {
@@ -329,14 +299,6 @@ public class SixBallAutonomousRed extends LinearOpMode {
         rightBack.setPower(rb);
     }
 
-    private void setGateClosed() {
-        if (gateServo != null) gateServo.setPosition(GATE_CLOSED);
-    }
-
-    private void setGateOpen() {
-        if (gateServo != null) gateServo.setPosition(GATE_OPEN);
-    }
-
     private void drive(double forward, double turn, double strafe) {
         double lf = forward + turn + strafe;
         double rf = forward - turn - strafe;
@@ -365,6 +327,5 @@ public class SixBallAutonomousRed extends LinearOpMode {
         stopDrive();
         runIntake(false);
         flywheel.setPower(0);
-        setGateClosed();
     }
 }
