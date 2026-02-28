@@ -19,8 +19,9 @@ The autonomous is implemented as a **state machine** in alliance-specific op mod
 | **OPEN_GATE**     | Allow balls to exit          | None                        | Gate → OPEN             | Time ≥ `TIME_GATE_OPEN_MS` or timeout |
 | **SCORE**         | Shoot 6 balls                | None                        | Flywheel spinup, then feed (mid + intake) | Time ≥ spinup + feed or timeout |
 | **CLOSE_GATE**    | Secure mechanism             | None                        | Gate → CLOSED           | Time ≥ `TIME_GATE_CLOSE_MS` or timeout |
-| **PARK**          | Move to parking              | Strafe (Blue: right; Red: left) | None | Time ≥ `TIME_PARK_MS` or timeout    |
-| **DONE**          | Stop all motors              | Stop                        | All off, gate closed    | —                                   |
+| **PARK**          | Brief strafe toward backdrop | Strafe (Blue: right; Red: left) | None | Time ≥ `TIME_PARK_MS` or timeout    |
+| **APRILTAG_PARK** | Drive to AprilTag for parking| Vision-based drive (range, bearing, yaw) | None | At target (range/angle) or `TIMEOUT_APRILTAG_MS` |
+| **DONE**          | Stop all motors              | Stop                        | All off, gate closed, vision closed | —                                   |
 
 ---
 
@@ -75,11 +76,13 @@ case LEAVE_START:
 
 ---
 
-## Alliance-specific op modes
+## Alliance-specific op modes (with AprilTag)
 
-- **Blue:** `SixBallAutonomousBlue.java` — OpMode name: **"6-Ball Blue (State Machine)"**. Align turn negative (cw); park strafe right (negative strafe), matching `twoBallBlue`.
-- **Red:** `SixBallAutonomousRed.java` — OpMode name: **"6-Ball Red (State Machine)"**. Align turn positive (ccw); park strafe left (positive strafe), matching `twoBallRed`.
-- **Generic:** `SixBallAutonomous.java` — single op mode (no alliance-specific turn/strafe).
+- **Blue:** `SixBallAutonomousBlue.java` — OpMode name: **"6-Ball Blue (State Machine)"**. Align turn negative (cw); park strafe right; then **AprilTag parking** via webcam (drive to tag).
+- **Red:** `SixBallAutonomousRed.java` — OpMode name: **"6-Ball Red (State Machine)"**. Align turn positive (ccw); park strafe left; then **AprilTag parking** via webcam.
+- **Generic:** `SixBallAutonomous.java` — single op mode (no AprilTag, no alliance-specific turn/strafe).
+
+Both Blue and Red use **Webcam 1** and the same AprilTag gains; set `DESIRED_TAG_ID` to a specific backdrop tag or `-1` for any tag.
 
 ## File and Configuration
 

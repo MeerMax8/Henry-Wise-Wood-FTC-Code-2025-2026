@@ -4,10 +4,21 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
- * 6-ball autonomous for RED alliance. State machine with gate; movements mirrored from twoBallRed.
- * Gate closed at start; opens before scoring so balls can pass through.
+ * 6-ball autonomous for RED alliance. State machine with gate and AprilTag parking.
+ * Gate closed at start; opens before scoring. Final stage drives to AprilTag for parking.
  */
 @Autonomous(name = "6-Ball Red (State Machine)")
 public class SixBallAutonomousRed extends LinearOpMode {
@@ -25,6 +36,23 @@ public class SixBallAutonomousRed extends LinearOpMode {
     private static final long TIMEOUT_GATE_MS          = 800;
     private static final long TIMEOUT_SCORE_MS         = 12_000;
     private static final long TIMEOUT_PARK_MS          = 4_000;
+    private static final long TIMEOUT_APRILTAG_MS     = 8_000;
+
+    // AprilTag (webcam)
+    private static final boolean USE_WEBCAM = true;
+    private static final int DESIRED_TAG_ID = -1;
+    private static final double APRILTAG_DESIRED_DISTANCE_INCHES = 12.0;
+    private static final double APRILTAG_SPEED_GAIN  = 0.02;
+    private static final double APRILTAG_STRAFE_GAIN  = 0.015;
+    private static final double APRILTAG_TURN_GAIN   = 0.01;
+    private static final double APRILTAG_MAX_SPEED   = 0.5;
+    private static final double APRILTAG_MAX_STRAFE   = 0.5;
+    private static final double APRILTAG_MAX_TURN     = 0.3;
+    private static final double APRILTAG_AT_TARGET_RANGE_INCHES = 2.0;
+    private static final double APRILTAG_AT_TARGET_ANGLE_DEG    = 5.0;
+
+    private AprilTagProcessor aprilTagProcessor;
+    private VisionPortal visionPortal;
 
     private static final long TIME_LEAVE_START_MS      = 1_800;
     private static final long TIME_COLLECT_PHASE_MS   = 2_500;
@@ -42,7 +70,7 @@ public class SixBallAutonomousRed extends LinearOpMode {
 
     public enum AutoStage {
         INIT, LEAVE_START, COLLECT_1, COLLECT_2, COLLECT_3,
-        ALIGN_TO_SCORE, OPEN_GATE, SCORE, CLOSE_GATE, PARK, DONE
+        ALIGN_TO_SCORE, OPEN_GATE, SCORE, CLOSE_GATE, PARK, APRILTAG_PARK, DONE
     }
 
     private AutoStage currentStage = AutoStage.INIT;
@@ -51,11 +79,14 @@ public class SixBallAutonomousRed extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         initHardware();
+        initAprilTag();
+        if (USE_WEBCAM) setManualExposure(6, 250);
         setGateClosed();
 
         telemetry.addData("Alliance", "RED");
         telemetry.addData("Stage", currentStage);
         telemetry.addData("Gate", "CLOSED at start");
+        telemetry.addData("AprilTag", "Webcam ready");
         telemetry.update();
 
         waitForStart();
@@ -73,6 +104,7 @@ public class SixBallAutonomousRed extends LinearOpMode {
         }
 
         stopAll();
+        if (visionPortal != null) visionPortal.close();
     }
 
     private void runStateMachine() {
@@ -164,8 +196,12 @@ public class SixBallAutonomousRed extends LinearOpMode {
                 drive(0, 0, PARK_STRAFE);  // Red: strafe left (positive)
                 if (elapsed >= TIME_PARK_MS || elapsed >= TIMEOUT_PARK_MS) {
                     stopDrive();
-                    transitionTo(AutoStage.DONE);
+                    transitionTo(AutoStage.APRILTAG_PARK);
                 }
+                break;
+
+            case APRILTAG_PARK:
+                runAprilTagPark();
                 break;
 
             case DONE:
@@ -201,6 +237,96 @@ public class SixBallAutonomousRed extends LinearOpMode {
         } catch (Exception e) {
             telemetry.addData("Warning", "Gate servo 'gate' not found");
         }
+    }
+
+    private void initAprilTag() {
+        aprilTagProcessor = new AprilTagProcessor.Builder().build();
+        aprilTagProcessor.setDecimation(2);
+        if (USE_WEBCAM) {
+            visionPortal = new VisionPortal.Builder()
+                    .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
+                    .addProcessor(aprilTagProcessor)
+                    .build();
+        } else {
+            visionPortal = new VisionPortal.Builder()
+                    .setCamera(BuiltinCameraDirection.BACK)
+                    .addProcessor(aprilTagProcessor)
+                    .build();
+        }
+    }
+
+    private void setManualExposure(int exposureMS, int gain) {
+        if (visionPortal == null) return;
+        if (visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
+            while (!isStopRequested() && visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
+                sleep(20);
+            }
+        }
+        if (!isStopRequested()) {
+            ExposureControl ec = visionPortal.getCameraControl(ExposureControl.class);
+            if (ec.getMode() != ExposureControl.Mode.Manual) {
+                ec.setMode(ExposureControl.Mode.Manual);
+                sleep(50);
+            }
+            ec.setExposure((long) exposureMS, TimeUnit.MILLISECONDS);
+            sleep(20);
+            GainControl gc = visionPortal.getCameraControl(GainControl.class);
+            gc.setGain(gain);
+            sleep(20);
+        }
+    }
+
+    private void runAprilTagPark() {
+        long elapsed = System.currentTimeMillis() - stageStartTimeMs;
+        if (elapsed >= TIMEOUT_APRILTAG_MS) {
+            stopDrive();
+            transitionTo(AutoStage.DONE);
+            return;
+        }
+
+        AprilTagDetection tag = null;
+        List<AprilTagDetection> detections = aprilTagProcessor.getDetections();
+        for (AprilTagDetection d : detections) {
+            if (d.metadata != null && (DESIRED_TAG_ID < 0 || d.id == DESIRED_TAG_ID)) {
+                tag = d;
+                break;
+            }
+        }
+
+        if (tag != null) {
+            double rangeError = tag.ftcPose.range - APRILTAG_DESIRED_DISTANCE_INCHES;
+            double headingError = tag.ftcPose.bearing;
+            double yawError = tag.ftcPose.yaw;
+            double drive = Range.clip(rangeError * APRILTAG_SPEED_GAIN, -APRILTAG_MAX_SPEED, APRILTAG_MAX_SPEED);
+            double turn = Range.clip(headingError * APRILTAG_TURN_GAIN, -APRILTAG_MAX_TURN, APRILTAG_MAX_TURN);
+            double strafe = Range.clip(-yawError * APRILTAG_STRAFE_GAIN, -APRILTAG_MAX_STRAFE, APRILTAG_MAX_STRAFE);
+
+            if (Math.abs(rangeError) < APRILTAG_AT_TARGET_RANGE_INCHES
+                    && Math.abs(headingError) < APRILTAG_AT_TARGET_ANGLE_DEG
+                    && Math.abs(yawError) < APRILTAG_AT_TARGET_ANGLE_DEG) {
+                stopDrive();
+                transitionTo(AutoStage.DONE);
+                return;
+            }
+            moveRobotAprilTag(drive, strafe, turn);
+        } else {
+            stopDrive();
+        }
+    }
+
+    private void moveRobotAprilTag(double x, double y, double yaw) {
+        double lf = x - y - yaw;
+        double rf = x + y + yaw;
+        double lb = x + y - yaw;
+        double rb = x - y + yaw;
+        double max = Math.max(Math.max(Math.abs(lf), Math.abs(rf)), Math.max(Math.abs(lb), Math.abs(rb)));
+        if (max > 1.0) {
+            lf /= max; rf /= max; lb /= max; rb /= max;
+        }
+        leftFront.setPower(lf);
+        rightFront.setPower(rf);
+        leftBack.setPower(lb);
+        rightBack.setPower(rb);
     }
 
     private void setGateClosed() {
